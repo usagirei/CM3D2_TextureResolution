@@ -13,4 +13,4 @@ Place the **CM3D2.TextureResolution.Patcher.dll** in your CM3D2 ReiPatcher Patch
 #### Building
 
 Make sure you have MSBuild v14 installed (Comes with VS2015)
-Place **Mono.Cecil** and **ReiPatcher.exe** references in the References folder, the Execute build.bat
+Place **Mono.Cecil** and **ReiPatcher.exe** references in the References folder, then Execute **build.bat**
