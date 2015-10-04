@@ -42,7 +42,7 @@ namespace CM3D2.TextureResolution.Patcher
 
         public override void Patch(PatcherArguments args)
         {
-            Debugger.Launch();
+            //Debugger.Launch();
             var mod = args.Assembly.MainModule;
             var ttBody = mod.GetType("TBody");
             var mMulTex = ttBody.Methods.First(def => def.Name == "MulTexProc" && def.HasParameters);
