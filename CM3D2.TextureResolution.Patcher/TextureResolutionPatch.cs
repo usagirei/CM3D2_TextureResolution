@@ -4,6 +4,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -25,6 +26,8 @@ namespace CM3D2.TextureResolution.Patcher
         public const string TOKEN = "CM3D2_TEXTURERESOLUTION";
         public override string Name => "CM3D2 Texture Resolution Patch";
 
+        public AssemblyDefinition EngineDefinition { get; set; }
+
         public override bool CanPatch(PatcherArguments args)
         {
             if (args.Assembly.Name.Name != "Assembly-CSharp")
@@ -43,13 +46,15 @@ namespace CM3D2.TextureResolution.Patcher
         public override void Patch(PatcherArguments args)
         {
             //Debugger.Launch();
-            var mod = args.Assembly.MainModule;
-            var ttBody = mod.GetType("TBody");
+            var aMod = args.Assembly.MainModule;
+            var eMod = EngineDefinition.MainModule;
+
+            var ttBody = aMod.GetType("TBody");
             var mMulTex = ttBody.Methods.First(def => def.Name == "MulTexProc" && def.HasParameters);
 
             // Min
             var tInt = typeof(int);
-            var mMin = mod.Import(typeof(Math).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            var mMin = aMod.Import(typeof(Math).GetMethods(BindingFlags.Public | BindingFlags.Static)
                                               .Where(info => info.Name == "Min")
                                               .First(
                                                      info =>
@@ -58,30 +63,31 @@ namespace CM3D2.TextureResolution.Patcher
                                                      && info.GetParameters()[1].ParameterType == tInt));
 
             // Vector Variables
-            var vVecPos = mMulTex.Body.Variables.First(def => def.VariableType.Name == "Vector3");
-            var vVecScale = mMulTex.Body.Variables.Last(def => def.VariableType.Name == "Vector3");
-            var vVecRatio = new VariableDefinition(vVecScale.VariableType);
+            var tVector = eMod.GetType("UnityEngine.Vector3");
+            var tVectorRef = aMod.Import(tVector);
 
-            var tVector = vVecPos.VariableType.Resolve();
-            var mVectorCtor = mod.Import(tVector.Methods.First(def => def.Name == ".ctor" && def.Parameters.Count == 3));
+            var vVecPos = mMulTex.Body.Variables.First(def => def.VariableType.FullName == tVectorRef.FullName);
+            var vVecScale = mMulTex.Body.Variables.Last(def => def.VariableType.FullName == tVectorRef.FullName);
+            var vVecRatio = new VariableDefinition(tVectorRef);
+            
+            var mVectorCtor = aMod.Import(tVector.Methods.First(def => def.Name == ".ctor" && def.Parameters.Count == 3));
             var mVectorScale =
-                mod.Import(tVector.Methods.First(def => def.Name == "Scale"
-                                                        && def.Parameters.All(def2 => def2.ParameterType.Name == "Vector3")));
+                aMod.Import(tVector.Methods.First(def => def.Name == "Scale"
+                                                        && def.Parameters.All(def2 => def2.ParameterType.FullName == tVectorRef.FullName)));
 
             mMulTex.Body.Variables.Add(vVecRatio);
 
             // RenderTexture Methods
-            var vRender = mMulTex.Body.Variables.Last(def => def.VariableType.Name == "RenderTexture");
-            var tRender = vRender.VariableType.Resolve();
+            var tRender = eMod.GetType("UnityEngine.RenderTexture");
 
             var mGetWd = tRender.Methods.First(def => def.Name == "get_width");
             var mGetHd = tRender.Methods.First(def => def.Name == "get_height");
             var mGetActived = tRender.Methods.First(def => def.Name == "get_active");
             var mSetActived = tRender.Methods.First(def => def.Name == "set_active");
-            var mGetW = mod.Import(mGetWd);
-            var mGetH = mod.Import(mGetHd);
-            var mGetActive = mod.Import(mGetActived);
-            var mSetActive = mod.Import(mSetActived);
+            var mGetW = aMod.Import(mGetWd);
+            var mGetH = aMod.Import(mGetHd);
+            var mGetActive = aMod.Import(mGetActived);
+            var mSetActive = aMod.Import(mSetActived);
 
             // First Point
             var pointOne =
@@ -128,6 +134,17 @@ namespace CM3D2.TextureResolution.Patcher
         public override void PrePatch()
         {
             RPConfig.RequestAssembly("Assembly-CSharp.dll");
+
+            var path = Path.Combine(AssembliesDir, "UnityEngine.dll");
+            if (!File.Exists(path))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("'UnityEngine.dll' Missing");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                return;
+            }
+            using (Stream s = File.OpenRead(path))
+                EngineDefinition = AssemblyDefinition.ReadAssembly(s);
         }
     }
 }
