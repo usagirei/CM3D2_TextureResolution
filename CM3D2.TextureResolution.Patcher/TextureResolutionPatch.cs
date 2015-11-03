@@ -129,6 +129,8 @@ namespace CM3D2.TextureResolution.Patcher
             ilp.InsertBefore(pointTwo, ilp.Create(OpCodes.Ldloc_S, vVecRatio)); //- LDLOC.S _vRATIO
             ilp.InsertBefore(pointTwo, ilp.Create(OpCodes.Call, mVectorScale)); //- CALL [UnityEngine.Vector3].Scale
             ilp.InsertBefore(pointTwo, ilp.Create(OpCodes.Stloc_S, vVecScale)); //- STLOC.S _vSCALE
+
+            SetPatchedAttribute(args.Assembly, TOKEN);
         }
 
         public override void PrePatch()
